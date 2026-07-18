@@ -11,7 +11,8 @@ This is the FastAPI service for Document Copilot. Read [../AGENTS.md](../AGENTS.
 - `pytest` for tests
 - Supabase Python client (DB + auth)
 - SQLAlchemy models + Alembic migrations for database schema changes
-- OpenAI SDK for LLM & embeddings
+- Anthropic SDK (via PydanticAI) for LLM generation
+- Local sentence-transformers for embeddings (`BAAI/bge-small-en-v1.5`, 384-dim — no API key)
 - Supabase `pgvector` for semantic search and Postgres full-text search for keyword retrieval. Hybrid search should run vector and full-text queries separately, then fuse ranked results in Python with Reciprocal Rank Fusion.
 - `structlog` for logging
 - `uv` for dependency + project management
@@ -73,7 +74,7 @@ backend/
 
 - **Prefer unit over integration.** Mock at the service boundary.
 - Fast suite (`pytest -m "not integration"`) must stay green and hit no network / no DB.
-- Integration tests go behind `@pytest.mark.integration` and may require live OpenAI / Supabase credentials.
+- Integration tests go behind `@pytest.mark.integration` and may require live Anthropic / Supabase credentials. (Embeddings run locally — no credentials needed.)
 - Tests live next to what they test (`retrieval/retriever.py` → `tests/retrieval/test_retriever.py`).
 - Required test coverage: ingestion logic, retrieval, citation extraction, grounding enforcement.
 

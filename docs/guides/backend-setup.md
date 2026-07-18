@@ -7,7 +7,7 @@ This project uses a separate Python + FastAPI backend because the server is resp
 ```bash
 cd backend
 uv sync
-uv add fastapi uvicorn pydantic pydantic-settings httpx structlog openai supabase pydantic-ai sqlalchemy alembic "psycopg[binary]" pgvector
+uv add fastapi uvicorn pydantic pydantic-settings httpx structlog anthropic supabase pydantic-ai sqlalchemy alembic "psycopg[binary]" asyncpg pgvector sentence-transformers
 uv add --dev pytest ruff
 ```
 
@@ -32,7 +32,7 @@ uv run alembic revision --autogenerate -m "add document tables"
 Always review the generated migration. Add explicit operations for Supabase/Postgres features that autogenerate cannot reliably infer:
 
 - `create extension if not exists vector`
-- `vector(1536)` columns
+- `vector(384)` columns (matches the local `BAAI/bge-small-en-v1.5` embedding model)
 - generated `tsvector` columns
 - HNSW and GIN indexes
 - RLS enablement and policies
