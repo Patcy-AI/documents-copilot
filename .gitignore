@@ -28,6 +28,9 @@ pnpm-debug.log*
 # Data / artifacts (downloaded corpus files are large, never check in)
 /data/downloads/*
 !/data/downloads/.gitkeep
+# Derived Markdown corpus — reproducible via data/convert/convert_to_markdown.py
+/data/markdown/*
+!/data/markdown/.gitkeep
 *.parquet
 
 # IDE / OS
