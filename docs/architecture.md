@@ -1,5 +1,9 @@
 # Document Copilot Architecture
 
+> Note: this document describes the target/intended design. The implementation has
+> evolved since it was written, so some module names and boundaries below differ
+> from the current code.
+
 ## Purpose
 
 Document Copilot is an internal research assistant for analysts who need grounded answers from a curated SEC filing corpus. The architecture must optimize for trust: every answer is generated from retrieved source passages, every factual claim is citable, and the system fails clearly when the corpus does not support an answer.

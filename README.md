@@ -25,8 +25,8 @@ Full brief: [docs/client-brief.md](docs/client-brief.md)
 ## Repo layout
 
 ```text
-document-copilot/
-├── AGENTS.md           # agent instructions (read first)
+documents-copilot/
+├── AGENTS.md           # agent instructions
 ├── README.md           # this file
 ├── data/               # local corpus + download script (payloads gitignored)
 ├── docs/
@@ -50,11 +50,25 @@ You also need accounts/keys for external services once the app is wired up. Star
 
 ## Running locally
 
-To be added during the build. Setup guides:
+1. Set up Supabase and fill in env values: [docs/guides/supabase-setup.md](docs/guides/supabase-setup.md)
+2. Backend:
 
-- [Supabase](docs/guides/supabase-setup.md) — account, hosted project (dashboard or CLI)
-- [Backend](docs/guides/backend-setup.md)
-- [Frontend](docs/guides/frontend-setup.md)
+   ```bash
+   cd backend
+   uv sync
+   uv run alembic upgrade head
+   uv run uvicorn app.main:app --reload
+   ```
+
+3. Frontend:
+
+   ```bash
+   cd frontend
+   pnpm install
+   pnpm dev
+   ```
+
+Full guides: [Supabase](docs/guides/supabase-setup.md) · [Backend](docs/guides/backend-setup.md) · [Frontend](docs/guides/frontend-setup.md)
 
 ## Sample SEC data
 

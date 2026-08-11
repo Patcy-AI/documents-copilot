@@ -8,11 +8,11 @@ work here is re-creating the parts git deliberately does not carry.
 
 - All code is committed and pushed. The ingestion pipeline (`backend/ingest/`)
   is complete.
-- The document embeddings are **not generated yet**: the database holds 25
-  `source_documents` all marked `pending` and `0` `document_chunks`. Running the
-  ingest to completion is the main outstanding task.
-- Supabase is shared cloud state. The schema and existing users already live
-  there — do **not** re-run migrations to recreate them; just connect.
+- The corpus is fully ingested: 25 `source_documents` embedded into 19,163
+  `document_chunks` (384-dim vectors). This data already lives in Supabase, so a
+  fresh machine does not need to re-run the ingest — just reconnect.
+- Supabase is shared cloud state. The schema, users, and ingested corpus already
+  live there — do **not** re-run migrations to recreate them; just connect.
 
 ## What does not come from `git clone`
 
@@ -21,7 +21,7 @@ work here is re-creating the parts git deliberately does not carry.
 | `backend/.env`, `frontend/.env` | gitignored secrets (DB password, Anthropic key) | copy manually from the old machine |
 | `data/downloads/` | large SEC HTML, gitignored | `uv run data/download.py` |
 | `data/markdown/` (`.md` + `.json`) | derived, gitignored | `uv run data/convert/convert_to_markdown.py` |
-| `document_chunks` rows | never generated yet | `uv run python -m ingest.chunk_and_embed` |
+| `document_chunks` rows | live in Supabase, not local | already ingested; re-run `uv run python -m ingest.chunk_and_embed` only to rebuild |
 
 The `.env` files are the only piece with no reproduction script. Carry them over
 by hand (password manager, encrypted drive) — never through git, Slack, or email.
@@ -39,7 +39,7 @@ cd documents-copilot
 
 # 2. Install dependencies
 cd backend && uv sync
-cd ../frontend && npm install && cd ..
+cd ../frontend && pnpm install && cd ..
 
 # 3. Put the two .env files in place (backend/ and frontend/) — see table above
 
@@ -47,7 +47,8 @@ cd ../frontend && npm install && cd ..
 uv run data/download.py                       # ~26 SEC filings
 uv run data/convert/convert_to_markdown.py    # Docling -> .md + .json (~30-60 min)
 
-# 5. Generate embeddings — the step that never finished before
+# 5. (Optional) Rebuild embeddings — the corpus is already ingested in Supabase,
+#    so only run this to regenerate chunks from scratch.
 cd backend && uv run python -m ingest.chunk_and_embed
 ```
 
@@ -60,8 +61,8 @@ Then launch the app per [backend-setup.md](backend-setup.md) and
 
 ## Verify the ingest worked
 
-Chunks should number in the low thousands across the 25 filings, carry 384-dim
-vectors, and — importantly — contain **no** `, 1 = . , 2 = .` table noise in
+The corpus produces ~19,000 chunks across the 25 filings, each carrying a 384-dim
+vector and — importantly — containing **no** `, 1 = . , 2 = .` table noise in
 `content`. If you see that noise, the wrong table serializer is in use (see
 below).
 

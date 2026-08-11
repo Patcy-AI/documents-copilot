@@ -1,32 +1,22 @@
-# React + TypeScript + Vite
+# Document Copilot — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + TypeScript SPA (Vite) for Document Copilot. Talks to the FastAPI
+backend over JSON; Supabase for email auth. See [AGENTS.md](AGENTS.md) for
+conventions.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+pnpm install
+cp .env.example .env   # fill in VITE_API_BASE_URL and Supabase values
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Run
+
+```bash
+pnpm dev        # dev server at http://localhost:5173
+pnpm build      # production build
+pnpm tsc --noEmit && pnpm lint   # typecheck + lint
+```
+
+Stack: Vite, React Router, Tailwind, shadcn/ui, `@supabase/supabase-js`.
