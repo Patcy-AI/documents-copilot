@@ -1,4 +1,4 @@
-"""Chat API — threads, history, and stubbed streaming.
+"""Chat API — threads, history, and grounded streaming answers.
 
 Every route is authenticated via ``get_current_user``. Ownership is enforced
 through ``get_owned_thread`` (the backend bypasses RLS on its direct
@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentUser, get_current_user
-from app.chat.retrieval import filing_label
+from app.chat.retrieval import filing_label, section_label
 from app.chat.schemas import CitationOut, CreateThreadIn, MessageOut, StreamIn, ThreadOut
 from app.chat.streaming import Cited, generate_chat_events
 from app.config import settings
@@ -68,7 +68,7 @@ def _message_out(message) -> MessageOut:
         CitationOut(
             chunk_id=c.chunk_id,
             filing=filing_label(c.chunk.metadata_ or {}),
-            section=(c.chunk.metadata_ or {}).get("section"),
+            section=section_label(c.chunk.metadata_ or {}),
             excerpt=c.quoted_text,
         )
         for c in message.citations

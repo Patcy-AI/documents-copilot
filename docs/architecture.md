@@ -373,6 +373,11 @@ Do not read environment variables directly from components, route handlers, or s
 
 ## Deployment Shape
 
+> **As built:** the pilot is deployed as a *single* container — FastAPI serves
+> the built SPA from the same origin — on **Google Cloud Run**, not two Railway
+> services. See [deploy/DEPLOY.md](../deploy/DEPLOY.md). The two-service shape
+> below remains the reference design.
+
 Railway should run two services:
 
 - Frontend: static Vite build served as a web app.

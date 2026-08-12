@@ -16,6 +16,7 @@ nothing in the corpus is actually relevant.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -70,6 +71,27 @@ def filing_label(meta: dict) -> str:
     return label or (meta.get("document_title") or "SEC filing")
 
 
+def section_label(meta: dict) -> str | None:
+    """Best in-filing locator for a citation.
+
+    SEC 10-Ks are cited by Item/section, not page (EDGAR filings are HTML and
+    have no pagination). Prefer the SEC Item heading (e.g. "Item 1A. Risk
+    Factors"); fall back to the most specific heading, then the stored section.
+    """
+    headings = [
+        h.strip()
+        for h in (meta.get("headings") or [])
+        if isinstance(h, str) and h.strip()
+    ]
+    for h in headings:
+        if re.match(r"(?i)^item\s+\d+", h):
+            return h
+    if headings:
+        return headings[-1]
+    sec = meta.get("section")
+    return sec.strip() if isinstance(sec, str) and sec.strip() else None
+
+
 @dataclass
 class RetrievedChunk:
     chunk_id: str
@@ -84,7 +106,7 @@ class RetrievedChunk:
 
     @property
     def section(self) -> str | None:
-        return self.metadata.get("section")
+        return section_label(self.metadata)
 
 
 @dataclass

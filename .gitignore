@@ -42,3 +42,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Cloud Run runtime secrets (local only)
+deploy/cloudrun.env.yaml

@@ -4,7 +4,7 @@ Run locally with:
 
     uv run uvicorn app.main:app --reload
 
-Routers (chat, ingest, auth) are added under ``app.api`` as they're built.
+Routers (chat, me) are registered under ``app.api``.
 In the Docker deploy the built frontend is copied to ``static/`` and served
 from this same app, so the whole product runs on one origin (no CORS).
 """

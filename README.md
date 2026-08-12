@@ -18,8 +18,8 @@ Full brief: [docs/client-brief.md](docs/client-brief.md)
 | Migrations         | SQLAlchemy models + Alembic                          |
 | Retrieval          | Supabase `pgvector` + Postgres full-text search      |
 | Auth               | Supabase Auth (email only)                           |
-| Hosting            | Railway                                              |
-| LLM                | Anthropic Claude (via PydanticAI)                    |
+| Hosting            | Google Cloud Run (single container)                  |
+| LLM                | Anthropic Claude (Sonnet 5) via the `anthropic` SDK  |
 | Embeddings         | Local sentence-transformers (BAAI/bge-small-en-v1.5) |
 
 ## Repo layout

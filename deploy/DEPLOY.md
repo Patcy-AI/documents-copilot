@@ -1,124 +1,90 @@
 # Deploying Document Copilot
 
-The whole app ships as **one Docker image**: the React frontend is built and
-served from the same FastAPI server, so there's a single public URL and no CORS
-to configure. It's built for **Hugging Face Spaces** (Docker SDK), which gives a
-free container with enough RAM (16 GB) for the local embedding model + torch —
-free micro-tiers like Render's 512 MB can't fit those.
+The whole app ships as **one container**: the React frontend is built and served
+by the FastAPI backend, so there's a single public URL and no CORS to configure.
+It's deployed on **Google Cloud Run** — a serverless container host with enough
+memory for the local embedding model + torch, a usable free tier, and no servers
+to manage (a good fit for the brief's "no infra team" constraint).
 
-The corpus is already ingested into Supabase (document_chunks), so nothing needs
-to be re-embedded — this just stands the app up in front of that data.
+The corpus is already ingested into Supabase (`document_chunks`), so nothing is
+re-embedded here — this just stands the app up in front of that data.
 
----
-
-## What you'll need
-
-- A Hugging Face account (free): https://huggingface.co/join
-- Your Supabase project values (Dashboard → Project Settings):
-  - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (API page)
-  - `DATABASE_URL` — the **direct** connection (host `db.<ref>.supabase.co:5432`),
-    not the pooler
-- An Anthropic API key: https://console.anthropic.com → API Keys
+> The reference design in `docs/architecture.md` describes two Railway services.
+> We deploy the same app as a single Cloud Run container instead; the code serves
+> the SPA and the API from one origin (`backend/app/main.py`).
 
 ---
 
-## Step 1 — Create the Space
+## What you need
 
-1. Go to https://huggingface.co/new-space
-2. Name it (e.g. `document-copilot`), License: your choice.
-3. **Space SDK: Docker** → **Blank** template.
-4. Choose the free CPU hardware. Create the Space.
+- The **gcloud CLI**: https://cloud.google.com/sdk/docs/install (needs Python 3.10–3.14).
+- A **GCP project** with billing enabled.
+- Your Supabase values and an Anthropic API key (already in `backend/.env`).
 
-## Step 2 — Push the code to the Space
-
-The Space is its own git repo. From your local clone of the project:
+## 1. Point gcloud at a project
 
 ```bash
-git remote add space https://huggingface.co/spaces/<your-hf-username>/document-copilot
-git push space main
+gcloud projects create <your-project-id> --name="Document Copilot"   # or reuse one
+gcloud config set project <your-project-id>
+gcloud billing projects link <your-project-id> --billing-account=<ACCOUNT_ID>
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
 ```
 
-(If your default branch is `main`, that's it. HF builds from the `Dockerfile`
-at the repo root automatically.)
+## 2. Runtime secrets
 
-## Step 3 — Add the Space front-matter
+The backend reads its secrets from the environment. `deploy/cloudrun.env.yaml`
+(git-ignored) holds them for the deploy — it mirrors `backend/.env`:
 
-Hugging Face needs a few config lines at the very top of the Space's
-`README.md`. The block is in `deploy/SPACE_README.md`. Easiest way:
+```yaml
+SUPABASE_URL: "https://<ref>.supabase.co"
+SUPABASE_ANON_KEY: "sb_publishable_..."
+SUPABASE_SERVICE_ROLE_KEY: "..."
+DATABASE_URL: "postgresql://...:5432/postgres"
+ANTHROPIC_API_KEY: "sk-ant-..."
+ANTHROPIC_MODEL: "claude-sonnet-5"
+ALLOWED_ORIGINS: "*"
+```
 
-- Open the Space → **Files** → edit `README.md` in the web editor, and paste the
-  block from `deploy/SPACE_README.md` at the very top (above everything else),
-  then commit. The Space will rebuild.
+`ANTHROPIC_MODEL` must be a valid public API model id (e.g. `claude-sonnet-5`,
+`claude-opus-5`, `claude-haiku-4-5`). A wrong id fails every answer at runtime.
 
-The important lines are `sdk: docker` and `app_port: 7860`.
+## 3. Deploy
 
-## Step 4 — Set the environment
+From the repo root:
 
-In the Space → **Settings** → **Variables and secrets**:
+```bash
+gcloud run deploy documents-copilot \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --memory 4Gi --cpu 2 --timeout 600 \
+  --env-vars-file deploy/cloudrun.env.yaml
+```
 
-**Secrets** (backend, private — kept server-side):
+Cloud Run builds the `Dockerfile` (frontend via pnpm, then the Python backend),
+pushes it to Artifact Registry, and returns a public `https://…run.app` URL.
+First build takes ~5–8 minutes.
 
-| Name | Value |
-|------|-------|
-| `ANTHROPIC_API_KEY` | your Anthropic key |
-| `ANTHROPIC_MODEL` | `claude-sonnet-5` (or `claude-opus-5` for top quality) |
-| `SUPABASE_URL` | `https://<ref>.supabase.co` |
-| `SUPABASE_ANON_KEY` | your anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | your service-role key |
-| `DATABASE_URL` | direct Postgres URL (URL-encode any special chars in the password) |
-| `ALLOWED_ORIGINS` | your Space URL, e.g. `https://<user>-document-copilot.hf.space` |
+## 4. Point Supabase auth at the URL
 
-**Variables** (frontend, public — baked into the browser bundle at build time):
+Supabase Dashboard → **Authentication → URL Configuration**: set **Site URL** to
+your Cloud Run URL and add it under **Redirect URLs**, so email login works.
 
-| Name | Value |
-|------|-------|
-| `VITE_SUPABASE_URL` | `https://<ref>.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | your anon key |
+## 5. Verify
 
-> The Supabase anon key is safe to expose — it's protected by row-level
-> security. The service-role key is **not**; keep it in Secrets only.
-
-After adding these, trigger a rebuild (Settings → **Factory rebuild**), since the
-frontend build reads the Variables at build time.
-
-## Step 5 — Point Supabase auth at the Space
-
-So email login redirects back to the deployed app:
-
-- Supabase Dashboard → **Authentication** → **URL Configuration**
-- Set **Site URL** to your Space URL, and add it under **Redirect URLs** too.
-
-## Step 6 — Verify
-
-Open the Space URL and check:
-
-1. `‹space-url›/health` returns `{"status":"ok"}`.
-2. Log in with email, start a thread.
-3. Ask an **in-corpus** question, e.g.
-   *"How did NVIDIA describe Data Center demand drivers in its fiscal 2025 10-K?"*
-   → you should get an answer with a **Sources** panel citing the filing, and
-   each source expands to show the exact passage.
-4. Ask an **out-of-corpus** question, e.g.
-   *"What is Tesla's 2025 revenue?"* or *"Who won the 2026 Super Bowl?"*
-   → it should **refuse** and say it only covers the five companies' 10-Ks.
-
-That refusal + the citations are the whole trust story — good things to capture
-on camera.
-
----
+- `‹url›/health` → `{"status":"ok"}`.
+- Ask an in-corpus question (e.g. NVIDIA Data Center demand, FY2025) → cited
+  answer with a **Sources** panel (filing + SEC Item + the exact passage).
+- Ask an out-of-corpus question (e.g. Tesla revenue) → it **refuses** and states
+  the corpus it covers.
 
 ## Notes
 
-- **First request is slow.** On the first question the server downloads the
-  embedding model (~130 MB) and loads it into memory. That's a one-time warm-up;
-  subsequent questions are fast. Ask one throwaway question before you start
-  recording so the model is already loaded.
-- **Model id.** `ANTHROPIC_MODEL` must be a valid public API model id. As of this
-  writing: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`. If answers
-  fail with a model error, that's the value to check.
-- **Running elsewhere.** The image is a standard Docker container — it runs on
-  any host with enough RAM (Fly.io, Railway, a VPS). Only the env-var UI differs.
-- **Split hosting (optional).** If you ever host the API and frontend on separate
-  origins, set `VITE_API_BASE_URL` to the API's URL at build time and put the
-  frontend origin in `ALLOWED_ORIGINS`. The default (empty) assumes same-origin,
-  which is what this single-image deploy uses.
+- **First request is slow.** The embedding model (~130 MB) loads on the first
+  question, then stays warm. Ask one throwaway question before recording/demoing.
+- **Cost.** Cloud Run scales to zero when idle, so an idle demo costs ~nothing;
+  you pay only for request time. Delete the service to stop all billing:
+  `gcloud run services delete documents-copilot --region us-central1`.
+- **Citations.** SEC filings on EDGAR are HTML (no page numbers), so answers cite
+  the filing + **SEC Item/section** + the exact passage — the standard, verifiable
+  way to locate a claim in a 10-K.
