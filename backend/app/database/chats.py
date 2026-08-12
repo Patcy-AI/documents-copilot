@@ -10,8 +10,9 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.database.models import ChatMessage, ChatThread
+from app.database.models import ChatMessage, ChatThread, MessageCitation
 
 
 async def list_threads(db: AsyncSession, user_id: uuid.UUID) -> list[ChatThread]:
@@ -52,11 +53,18 @@ async def get_owned_thread(
 async def list_messages(
     db: AsyncSession, thread_id: uuid.UUID
 ) -> list[ChatMessage]:
-    """Messages in a thread, oldest first. Caller must have checked ownership."""
+    """Messages in a thread, oldest first. Caller must have checked ownership.
+
+    Citations (and their chunks) are eager-loaded so the history view can show
+    the same sources the analyst saw live, without an N+1 per message.
+    """
     result = await db.execute(
         select(ChatMessage)
         .where(ChatMessage.thread_id == thread_id)
         .order_by(ChatMessage.created_at)
+        .options(
+            selectinload(ChatMessage.citations).selectinload(MessageCitation.chunk)
+        )
     )
     return list(result.scalars().all())
 

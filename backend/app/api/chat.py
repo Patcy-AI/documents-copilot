@@ -13,8 +13,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import CurrentUser, get_current_user
-from app.chat.schemas import CreateThreadIn, MessageOut, StreamIn, ThreadOut
-from app.chat.streaming import stream_stub_reply
+from app.chat.retrieval import filing_label
+from app.chat.schemas import CitationOut, CreateThreadIn, MessageOut, StreamIn, ThreadOut
+from app.chat.streaming import Cited, generate_chat_events
 from app.config import settings
 from app.database.chats import (
     add_message,
@@ -23,6 +24,7 @@ from app.database.chats import (
     list_messages,
     list_threads,
 )
+from app.database.models import MessageCitation
 from app.database.session import SessionLocal, get_db
 from app.database.users import ensure_app_user
 
@@ -57,7 +59,27 @@ async def get_messages(
 ) -> list[MessageOut]:
     await get_owned_thread(db, thread_id, user.id)  # 404 / 403
     messages = await list_messages(db, thread_id)
-    return [MessageOut.model_validate(m) for m in messages]
+    return [_message_out(m) for m in messages]
+
+
+def _message_out(message) -> MessageOut:
+    """Serialize a message plus its citations, labelling each cited filing."""
+    citations = [
+        CitationOut(
+            chunk_id=c.chunk_id,
+            filing=filing_label(c.chunk.metadata_ or {}),
+            section=(c.chunk.metadata_ or {}).get("section"),
+            excerpt=c.quoted_text,
+        )
+        for c in message.citations
+    ]
+    return MessageOut(
+        id=message.id,
+        role=message.role,
+        content=message.content,
+        created_at=message.created_at,
+        citations=citations,
+    )
 
 
 @router.post("/stream")
@@ -78,17 +100,32 @@ async def chat_stream(
             await session.commit()
 
             parts: list[str] = []
-            async for frame, delta in stream_stub_reply():
-                parts.append(delta)
+            cited: list[Cited] = []
+            async for frame, kind, payload in generate_chat_events(
+                session, body.message
+            ):
+                if kind == "delta":
+                    parts.append(payload)  # type: ignore[arg-type]
+                elif kind == "citations":
+                    cited = payload  # type: ignore[assignment]
                 yield frame
 
-            await add_message(
+            assistant = await add_message(
                 session,
                 body.thread_id,
                 "assistant",
                 "".join(parts),
                 model=settings.anthropic_model,
             )
+            for c in cited:
+                session.add(
+                    MessageCitation(
+                        message_id=assistant.id,
+                        chunk_id=uuid.UUID(c.chunk_id),
+                        quoted_text=c.quoted_text,
+                        score=c.score,
+                    )
+                )
             await session.commit()
 
     return StreamingResponse(

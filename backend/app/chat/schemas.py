@@ -20,6 +20,15 @@ class ThreadOut(BaseModel):
     updated_at: datetime
 
 
+class CitationOut(BaseModel):
+    """A source passage an assistant message cited, for the history view."""
+
+    chunk_id: uuid.UUID
+    filing: str
+    section: str | None = None
+    excerpt: str | None = None
+
+
 class MessageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -27,6 +36,7 @@ class MessageOut(BaseModel):
     role: str
     content: str
     created_at: datetime
+    citations: list[CitationOut] = []
 
 
 class CreateThreadIn(BaseModel):

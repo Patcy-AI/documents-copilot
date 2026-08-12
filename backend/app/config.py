@@ -39,8 +39,11 @@ class Settings(BaseSettings):
     database_url: str
 
     # --- Anthropic / Claude (the LLM used for generation) ---
+    # anthropic_model must be a valid public API model id (see the Anthropic
+    # models docs). Override via ANTHROPIC_MODEL; e.g. claude-opus-5 for the
+    # highest-quality answers, claude-haiku-4-5 for the cheapest.
     anthropic_api_key: str
-    anthropic_model: str = "claude-opus-4-8"
+    anthropic_model: str = "claude-sonnet-5"
 
     # --- Embeddings (local, free — sentence-transformers, no API key) ---
     # EMBEDDING_DIMENSIONS must match the pgvector column width in Supabase.

@@ -12,7 +12,10 @@ function required(name: string, value: string | undefined): string {
 }
 
 export const env = {
-  API_BASE_URL: required('VITE_API_BASE_URL', import.meta.env.VITE_API_BASE_URL),
+  // Empty = same origin. In the Docker deploy the API is served from the same
+  // host as the SPA, so no base URL is needed. Set VITE_API_BASE_URL only when
+  // the backend lives on a different origin (e.g. separate local dev server).
+  API_BASE_URL: import.meta.env.VITE_API_BASE_URL ?? '',
   SUPABASE_URL: required('VITE_SUPABASE_URL', import.meta.env.VITE_SUPABASE_URL),
   SUPABASE_ANON_KEY: required(
     'VITE_SUPABASE_ANON_KEY',

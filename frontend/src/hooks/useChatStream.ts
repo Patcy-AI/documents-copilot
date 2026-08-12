@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { Citation } from '@/lib/chat'
 import { loadMessages, streamChat } from '@/lib/chat'
 
 export interface UiMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  citations?: Citation[]
 }
 
 // Owns one thread's messages: loads history, then streams the assistant reply
@@ -21,7 +23,12 @@ export function useChatStream(threadId: string) {
       .then((history) => {
         if (active) {
           setMessages(
-            history.map((m) => ({ id: m.id, role: m.role, content: m.content })),
+            history.map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              citations: m.citations,
+            })),
           )
         }
       })
@@ -43,13 +50,24 @@ export function useChatStream(threadId: string) {
         { id: assistantId, role: 'assistant', content: '' },
       ])
       try {
-        await streamChat(threadId, text, (delta) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: m.content + delta } : m,
-            ),
-          )
-        })
+        await streamChat(
+          threadId,
+          text,
+          (delta) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: m.content + delta } : m,
+              ),
+            )
+          },
+          (citations) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, citations } : m,
+              ),
+            )
+          },
+        )
       } finally {
         setSending(false)
       }
